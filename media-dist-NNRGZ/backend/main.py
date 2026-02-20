@@ -434,7 +434,7 @@ def heartbeat(data: HeartbeatRequest, db: Session = Depends(get_db)):
         # Устройство отсутствует — добавляем как новое
         new_device = Device(
             device_id=data.id,
-            description="Новое устройство",
+            description="Неизвестное устройство",
             status="unverified",  # Статус "Новое"
             user_id=user.id,
             last_heartbeat=datetime.now()

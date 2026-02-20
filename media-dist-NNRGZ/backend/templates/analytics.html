@@ -1,62 +1,78 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container py-4">
-    <h2 class="mb-4">📊 BI-Аналитика</h2>
-
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📊 Интеллектуальный мониторинг узла</h2>
+        <span class="badge bg-dark">AI Model: PyTorch MLP Regressor</span>
+    </div>
+    
     <div class="row g-3 mb-4">
         <div class="col-md-3">
             <div class="card shadow-sm border-0 bg-white p-3 text-center">
-                <small class="text-muted text-uppercase fw-bold">Всего узлов</small>
+                <small class="text-muted text-uppercase fw-bold">Активные узлы</small>
                 <h2 class="text-primary mt-1">{{ total_devices }}</h2>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card shadow-sm border-0 bg-white p-3 text-center">
-                <small class="text-muted text-uppercase fw-bold">Темп роста (в день)</small>
-                <h2 class="text-success mt-1">+{{ chart_data.metrics.avg_growth }}</h2>
+                <small class="text-muted text-uppercase fw-bold">Общий баланс</small>
+                <h2 class="{% if chart_data.metrics.avg_growth >= 0 %}text-success{% else %}text-danger{% endif %} mt-1">
+                    {{ "▲" if chart_data.metrics.avg_growth >= 0 else "▼" }} {{ chart_data.metrics.avg_growth }}
+                </h2>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card shadow-sm border-0 bg-white p-3 text-center">
-                <small class="text-muted text-uppercase fw-bold">Нагрузка на API</small>
+                <small class="text-muted text-uppercase fw-bold">Загрузка API</small>
                 <h2 class="text-warning mt-1">{{ chart_data.metrics.server_load }}%</h2>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card shadow-sm border-0 bg-white p-3 text-center">
-                <small class="text-muted text-uppercase fw-bold">Дней анализа</small>
-                <h2 class="text-info mt-1">{{ chart_data.metrics.days_monitored }}</h2>
+                <small class="text-muted text-uppercase fw-bold">Статус тренда</small>
+                <h2 class="mt-1 {% if chart_data.metrics.trend == 'down' %}text-danger{% else %}text-success{% endif %}">
+                    {% if chart_data.metrics.trend == 'down' %}
+                        📉 Спад
+                    {% else %}
+                        📈 Рост
+                    {% endif %}
+                </h2>
             </div>
         </div>
     </div>
 
     <div class="row">
-        <div class="col-lg-9">
-            <div class="card shadow border-0 p-4 mb-4">
-                <h5 class="card-title mb-4">Прогноз масштабирования сети (MLP Regressor)</h5>
-                <canvas id="growthChart"></canvas>
-            </div>
-            <div
-                class="alert {% if chart_data.metrics.avg_growth > 1 %}alert-info{% else %}alert-warning{% endif %} border-0 shadow-sm">
-                <i class="bi bi-robot"></i>
-                {% if chart_data.metrics.avg_growth > 1 %}
-                Обнаружен устойчивый тренд на расширение сети. Мощности текущего узла достаточно на ближайшие 30 дней.
-                {% else %}
-                Темп прироста стабилизировался. Рекомендуется оптимизировать текущие ресурсы перед следующим этапом
-                масштабирования.
-                {% endif %}
+        <div class="col-lg-9 mb-4">
+            <div class="card shadow border-0 p-4">
+                <h5 class="card-title mb-4">Динамика активных устройств и прогноз оттока</h5>
+                <div style="height: 400px;">
+                    <canvas id="growthChart"></canvas>
+                </div>
             </div>
         </div>
-
+        
         <div class="col-lg-3">
-            <div class="card shadow border-0 p-4 text-center">
-                <h6 class="mb-3">Статус мощности</h6>
+            <div class="card shadow border-0 p-4 mb-3 text-center">
+                <h6 class="mb-3">Емкость сервера</h6>
                 <div class="progress mb-3" style="height: 25px;">
-                    <div class="progress-bar bg-info" style="width: {{ chart_data.metrics.server_load }}%">
+                    <div class="progress-bar {% if chart_data.metrics.server_load > 80 %}bg-danger{% else %}bg-info{% endif %}" 
+                         style="width: {{ chart_data.metrics.server_load }}%">
                         {{ chart_data.metrics.server_load }}%
                     </div>
                 </div>
-                <p class="small text-muted">При достижении 80% рекомендуется развернуть новый узел обработки данных.</p>
+                <p class="small text-muted">Лимит текущего узла: 50 устройств.</p>
+            </div>
+
+            <div class="alert {% if chart_data.metrics.trend == 'down' %}alert-danger{% else %}alert-success{% endif %} border-0 shadow-sm">
+                <h6>🤖 AI Инсайт:</h6>
+                <small>
+                    {% if chart_data.metrics.trend == 'down' %}
+                        Обнаружена критическая аномалия: количество активных устройств сокращается. 
+                        Нейросеть прогнозирует дальнейшее снижение. Проверьте стабильность сети!
+                    {% else %}
+                        Система работает в штатном режиме. Наблюдается положительная динамика подключений.
+                    {% endif %}
+                </small>
             </div>
         </div>
     </div>
@@ -64,34 +80,64 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    const ctx = document.getElementById('growthChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: {{ chart_data.labels | tojson }},
-        datasets: [
-        {
-            label: 'Реальные подключения',
-            data: {{ chart_data.history | tojson }},
-        borderColor: '#0d6efd',
-        backgroundColor: 'rgba(13, 110, 253, 0.05)',
-        fill: true,
-        tension: 0.4
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('growthChart').getContext('2d');
+        
+        const labels = {{ chart_data.labels | tojson }};
+        const historyData = {{ chart_data.history | tojson }};
+        const forecastData = {{ chart_data.forecast | tojson }};
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Активные устройства (Факт)',
+                        data: historyData,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#0d6efd'
+                    },
+                    {
+                        label: 'Прогноз нейросети (7 дней)',
+                        data: forecastData,
+                        borderColor: '#dc3545',
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: { mode: 'index', intersect: false }
                 },
-        {
-            label: 'AI Прогноз (7 дней)',
-            data: {{ chart_data.forecast | tojson }},
-        borderColor: '#dc3545',
-        borderDash: [5, 5],
-        pointRadius: 0,
-        tension: 0.4
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Кол-во устройств' },
+                        grid: { color: '#f0f0f0' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
                 }
-    ]
-        },
-        options: {
-        plugins: { legend: { display: true, position: 'bottom' } },
-        scales: { y: { grid: { display: false } } }
-    }
+            }
+        });
     });
 </script>
+
+<style>
+    body { background-color: #f4f7f6; }
+    .card { border-radius: 12px; }
+    .alert { border-radius: 12px; }
+</style>
 {% endblock %}

@@ -17,55 +17,52 @@ class GrowthPredictor(nn.Module):
     def forward(self, x): return self.net(x)
 
 def get_enhanced_analytics(devices, days_ahead=7):
-    if len(devices) < 2:
-        return None
+    if not devices: return None
 
-    # Подготовка временной шкалы
     start_date = min(d.created_at for d in devices)
     total_days = (datetime.now() - start_date).days + 1
     
-    history_map = {}
-    for d in devices:
-        day_idx = (d.created_at - start_date).days
-        history_map[day_idx] = history_map.get(day_idx, 0) + 1
-    
-    counts = []
-    current_total = 0
+    # Считаем количество активных на каждый день i
+    daily_active_count = []
     for i in range(total_days):
-        current_total += history_map.get(i, 0)
-        counts.append(current_total)
+        check_date = start_date + timedelta(days=i)
+        # Устройство активно, если оно уже создано И (оно активно ИЛИ оно "умерло" позже даты проверки)
+        count = 0
+        for d in devices:
+            if d.created_at <= check_date:
+                # Если устройство сейчас blocked, смотрим, когда был последний heartbeat
+                if d.status == "active":
+                    count += 1
+                elif d.last_heartbeat and d.last_heartbeat > check_date:
+                    count += 1
+        daily_active_count.append(count)
 
-    # Обучение нейросети
-    max_count = max(counts)
-    X = torch.linspace(0, 1, steps=len(counts)).view(-1, 1)
-    y = torch.tensor(counts, dtype=torch.float32).view(-1, 1) / max_count # Нормализуем Y к [0, 1]
-
+    # Обучаем нейросеть на этом "падении"
+    max_val = max(daily_active_count) if daily_active_count else 1
+    X = torch.linspace(0, 1, steps=total_days).view(-1, 1)
+    y = torch.tensor(daily_active_count, dtype=torch.float32).view(-1, 1) / max_val
+    
     model = GrowthPredictor()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    for _ in range(500):
+    for _ in range(600):
         optimizer.zero_grad()
-        loss = nn.MSELoss()(model(X), y)
+        loss = torch.nn.MSELoss()(model(X), y)
         loss.backward()
         optimizer.step()
 
-    # Прогноз на будущее
-    future_steps = torch.linspace(1, 1.3, steps=days_ahead).view(-1, 1)
+    # Прогноз
+    future_x = torch.linspace(1, 1.4, steps=days_ahead).view(-1, 1)
     with torch.no_grad():
-        preds_norm = model(future_steps).flatten().tolist()
-        preds = [p * max_count for p in preds_norm]
-
-    # Расчет доп. метрик
-    avg_growth = len(devices) / total_days
-    # Условный лимит сервера - 50 устройств (для BI)
-    server_load = (len(devices) / 50) * 100 
+        preds = [max(0, p * max_val) for p in model(future_x).flatten().tolist()]
 
     return {
         "labels": [(start_date + timedelta(days=i)).strftime("%d.%m") for i in range(total_days + days_ahead)],
-        "history": counts,
-        "forecast": [None]*(total_days-1) + [counts[-1]] + [round(p, 1) for p in preds],
+        "history": daily_active_count,
+        "forecast": [None]*(total_days-1) + [daily_active_count[-1]] + preds,
         "metrics": {
-            "avg_growth": round(avg_growth, 2),
-            "server_load": round(server_load, 1),
-            "days_monitored": total_days
+            "avg_growth": round(daily_active_count[-1] - daily_active_count[0], 1),
+            "server_load": round((daily_active_count[-1]/50)*100, 1),
+            "days_monitored": total_days,
+            "trend": "down" if preds[-1] < daily_active_count[-1] else "up"
         }
     }
