@@ -4,11 +4,9 @@ import uuid
 import zlib
 import time
 import secrets
-import numpy as np
 from typing import List
 from datetime import datetime
 from passlib.context import CryptContext
-from analytics_engine import get_device_predictions
 
 from fastapi import (
     APIRouter,
@@ -25,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Device, File, User
+from analytics_engine import predict_growth
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -391,19 +390,20 @@ def update_device_playlist(
 
 
 @router.get("/web/analytics", response_class=HTMLResponse)
-def analytics_page(
+def get_analytics(
     request: Request,
     user: User = Depends(get_current_web_user),
     db: Session = Depends(get_db)
 ):
     if not user:
-        return RedirectResponse(url="/web/login", status_code=303)
-        
-    # Вызываем нашу нейросеть
-    analytics_data = get_device_predictions(db, user.id, days_to_predict=7)
-    
+        return RedirectResponse("/web/login")
+
+    devices = db.query(Device).filter(Device.user_id == user.id).all()
+    data = predict_growth(devices)
+
     return templates.TemplateResponse("analytics.html", {
         "request": request,
         "user": user,
-        "analytics_data": analytics_data
+        "chart_data": data,
+        "total_devices": len(devices)
     })

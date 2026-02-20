@@ -1,15 +1,15 @@
 from sqlalchemy import (
     Column,
     ForeignKey,
-    Float,
     Integer,
     String,
     DateTime,
     Boolean,
     Table)
 from sqlalchemy.orm import relationship
-from datetime import datetime
+
 from database import Base
+from datetime import datetime
 
 
 device_files = Table(
@@ -50,6 +50,7 @@ class Device(Base):
     user = relationship("User", back_populates="devices")
     token_synced = Column(Boolean, default=True)
     last_heartbeat = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
 
     files = relationship(
         "File",
@@ -73,16 +74,3 @@ class File(Base):
             secondary=device_files,
             back_populates="files"
         )
-
-
-class DeviceHistory(Base):
-    __tablename__ = "device_history"
-
-    id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    
-    total_devices = Column(Integer, default=0)
-    online_percentage = Column(Float, default=0.0)
-    
-    user = relationship("User")
