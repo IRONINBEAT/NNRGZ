@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📊 BI-Аналитика (Нейросетевой мониторинг)</h2>
+        <span class="text-muted">Модель: MLP Classifier (PyTorch)</span>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-dark text-white p-3">
+                <div class="card-body">
+                    <h5 class="card-title">Всего устройств</h5>
+                    <h2 class="display-4">{{ stats.total }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card {% if stats.critical_count > 0 %}bg-danger{% else %}bg-secondary{% endif %} text-white p-3">
+                <div class="card-body">
+                    <h5 class="card-title">Критические сбои (AI)</h5>
+                    <h2 class="display-4">{{ stats.critical_count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white p-3">
+                <div class="card-body">
+                    <h5 class="card-title">Средний Health Score</h5>
+                    <h2 class="display-4">{{ stats.avg_health }}%</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Классификация состояния устройств</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID Устройства</th>
+                                <th>Индекс здоровья</th>
+                                <th>Статус (Прогноз AI)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in predictions %}
+                            <tr>
+                                <td><strong>{{ p.device_id }}</strong></td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                                            <div class="progress-bar {% if p.health_score > 70 %}bg-success{% elif p.health_score > 30 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                 style="width: {{ p.health_score }}%"></div>
+                                        </div>
+                                        <small>{{ p.health_score }}%</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge {% if p.status == 'stable' %}bg-success{% elif p.status == 'warning' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                        {{ p.label }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% if not predictions %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">Нет подключенных устройств для анализа</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm p-3">
+                <h5 class="text-center mb-4">Распределение по классам</h5>
+                <div style="max-width: 300px; margin: 0 auto;">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('statusChart').getContext('2d');
+        
+        // Данные передаются из FastAPI через Jinja2 фильтры
+        const stableCount = {{ predictions|selectattr("status", "equalto", "stable")|list|length }};
+        const warningCount = {{ predictions|selectattr("status", "equalto", "warning")|list|length }};
+        const criticalCount = {{ predictions|selectattr("status", "equalto", "critical")|list|length }};
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Стабильно', 'Внимание', 'Критично'],
+                datasets: [{
+                    data: [stableCount, warningCount, criticalCount],
+                    backgroundColor: ['#198754', '#ffc107', '#dc3545'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                cutout: '70%'
+            }
+        });
+    });
+</script>
+{% endblock %}
