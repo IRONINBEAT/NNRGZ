@@ -389,35 +389,21 @@ def update_device_playlist(
 
     return RedirectResponse(url="/web/dashboard", status_code=303)
 
+
 @router.get("/web/analytics", response_class=HTMLResponse)
-def analytics_dashboard(
+def analytics_page(
     request: Request,
     user: User = Depends(get_current_web_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db)
 ):
     if not user:
-        return RedirectResponse(url="/web/login")
-
-    # Получаем все устройства пользователя
-    devices = db.query(Device).filter(Device.user_id == user.id).all()
+        return RedirectResponse(url="/web/login", status_code=303)
+        
+    # Вызываем нашу нейросеть
+    analytics_data = get_device_predictions(db, user.id, days_to_predict=7)
     
-    # Прогоняем через наш "нейросетевой" движок
-    predictions = get_device_predictions(devices)
-    
-    # Считаем агрегированную статистику для BI
-    critical_count = len([p for p in predictions if p['status'] == 'critical'])
-    avg_health = np.mean([p['health_score'] for p in predictions]) if predictions else 0
-
-    return templates.TemplateResponse(
-        "analytics.html",
-        {
-            "request": request,
-            "user": user,
-            "predictions": predictions,
-            "stats": {
-                "critical_count": critical_count,
-                "avg_health": round(avg_health, 1),
-                "total": len(devices)
-            }
-        },
-    )
+    return templates.TemplateResponse("analytics.html", {
+        "request": request,
+        "user": user,
+        "analytics_data": analytics_data
+    })

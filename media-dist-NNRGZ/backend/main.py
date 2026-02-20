@@ -1,8 +1,9 @@
 import os
 import shutil
 import uuid
+import asyncio
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import (
     Depends,
     FastAPI,
@@ -16,8 +17,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import Device, File, User
+from database import get_db, SessionLocal
+from models import Device, File, User, DeviceHistory
 from web_routes import router as web_router
 
 UPLOAD_DIR = "uploads/videos"
@@ -296,6 +297,60 @@ def upload_file(
 
     return {"result": "uploaded", "file_id": file_id, "path": file_path}
 
+
+# async def aggregate_device_stats():
+#     """Фоновая задача для сбора BI-метрик."""
+#     while True:
+#         db = SessionLocal()
+#         try:
+#             users = db.query(User).all()
+#             now = datetime.now()
+            
+#             for user in users:
+#                 devices = db.query(Device).filter(
+#                     Device.user_id == user.id,
+#                     Device.status != "unverified"
+#                 ).all()
+                
+#                 if not devices:
+#                     continue
+                
+#                 total = len(devices)
+#                 online_count = 0
+#                 total_files = 0
+                
+#                 for dev in devices:
+#                     # Считаем устройство online, если heartbeat свежее таймаута
+#                     if dev.last_heartbeat:
+#                         diff = (now - dev.last_heartbeat).total_seconds()
+#                         if diff < user.heartbeat_timeout:
+#                             online_count += 1
+                    
+#                     total_files += len(dev.files)
+                
+#                 # Записываем историю
+#                 history_record = DeviceHistory(
+#                     user_id=user.id,
+#                     timestamp=now,
+#                     total_devices=total,
+#                     online_percentage=(online_count / total) * 100,
+#                     avg_files_per_device=total_files / total
+#                 )
+#                 db.add(history_record)
+#             db.commit()
+#         except Exception as e:
+#             print(f"Ошибка агрегации BI: {e}")
+#         finally:
+#             db.close()
+            
+#         # Запускаем раз в час (3600 секунд). Для тестов поставь 60.
+#         await asyncio.sleep(60) 
+
+
+# @app.on_event("startup")
+# async def startup_event():
+#     # Запуск фонового сборщика при старте сервера
+#     asyncio.create_task(aggregate_device_stats())
 
 # ============== Public Endpoints (V3) ==============
 
