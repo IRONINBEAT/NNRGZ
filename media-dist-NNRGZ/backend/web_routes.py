@@ -398,11 +398,9 @@ def get_analytics(
     if not user: return RedirectResponse("/web/login")
 
     devices = db.query(Device).filter(Device.user_id == user.id).all()
-    # Получаем расширенную аналитику
     data = get_enhanced_analytics(devices)
 
     if not data:
-        # Если устройств мало, выводим заглушку или пустые данные
         return templates.TemplateResponse("analytics.html", {
             "request": request, "user": user, "total_devices": len(devices), 
             "chart_data": {"metrics": {"avg_growth": 0, "server_load": 0, "days_monitored": 0}}

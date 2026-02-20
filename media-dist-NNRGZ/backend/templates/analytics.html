@@ -2,8 +2,8 @@
 {% block content %}
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>📊 Интеллектуальный мониторинг узла</h2>
-        <span class="badge bg-dark">AI Model: PyTorch MLP Regressor</span>
+        <h2>📊 BI-аналитика загруженности узла</h2>
+        <span class="badge bg-dark">Модель: PyTorch MLP Regressor</span>
     </div>
     
     <div class="row g-3 mb-4">
@@ -61,18 +61,6 @@
                     </div>
                 </div>
                 <p class="small text-muted">Лимит текущего узла: 50 устройств.</p>
-            </div>
-
-            <div class="alert {% if chart_data.metrics.trend == 'down' %}alert-danger{% else %}alert-success{% endif %} border-0 shadow-sm">
-                <h6>🤖 AI Инсайт:</h6>
-                <small>
-                    {% if chart_data.metrics.trend == 'down' %}
-                        Обнаружена критическая аномалия: количество активных устройств сокращается. 
-                        Нейросеть прогнозирует дальнейшее снижение. Проверьте стабильность сети!
-                    {% else %}
-                        Система работает в штатном режиме. Наблюдается положительная динамика подключений.
-                    {% endif %}
-                </small>
             </div>
         </div>
     </div>
