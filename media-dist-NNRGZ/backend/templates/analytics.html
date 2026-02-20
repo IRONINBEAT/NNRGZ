@@ -1,13 +1,63 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-4">
-    <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">📈 Прогноз загруженности узла (AI)</h4>
+<div class="container py-4">
+    <h2 class="mb-4">📊 BI-Аналитика</h2>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 bg-white p-3 text-center">
+                <small class="text-muted text-uppercase fw-bold">Всего узлов</small>
+                <h2 class="text-primary mt-1">{{ total_devices }}</h2>
+            </div>
         </div>
-        <div class="card-body">
-            <p>Текущее количество устройств: <strong>{{ total_devices }}</strong></p>
-            <canvas id="growthChart" style="max-height: 400px;"></canvas>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 bg-white p-3 text-center">
+                <small class="text-muted text-uppercase fw-bold">Темп роста (в день)</small>
+                <h2 class="text-success mt-1">+{{ chart_data.metrics.avg_growth }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 bg-white p-3 text-center">
+                <small class="text-muted text-uppercase fw-bold">Нагрузка на API</small>
+                <h2 class="text-warning mt-1">{{ chart_data.metrics.server_load }}%</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 bg-white p-3 text-center">
+                <small class="text-muted text-uppercase fw-bold">Дней анализа</small>
+                <h2 class="text-info mt-1">{{ chart_data.metrics.days_monitored }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-9">
+            <div class="card shadow border-0 p-4 mb-4">
+                <h5 class="card-title mb-4">Прогноз масштабирования сети (MLP Regressor)</h5>
+                <canvas id="growthChart"></canvas>
+            </div>
+            <div
+                class="alert {% if chart_data.metrics.avg_growth > 1 %}alert-info{% else %}alert-warning{% endif %} border-0 shadow-sm">
+                <i class="bi bi-robot"></i>
+                {% if chart_data.metrics.avg_growth > 1 %}
+                Обнаружен устойчивый тренд на расширение сети. Мощности текущего узла достаточно на ближайшие 30 дней.
+                {% else %}
+                Темп прироста стабилизировался. Рекомендуется оптимизировать текущие ресурсы перед следующим этапом
+                масштабирования.
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-lg-3">
+            <div class="card shadow border-0 p-4 text-center">
+                <h6 class="mb-3">Статус мощности</h6>
+                <div class="progress mb-3" style="height: 25px;">
+                    <div class="progress-bar bg-info" style="width: {{ chart_data.metrics.server_load }}%">
+                        {{ chart_data.metrics.server_load }}%
+                    </div>
+                </div>
+                <p class="small text-muted">При достижении 80% рекомендуется развернуть новый узел обработки данных.</p>
+            </div>
         </div>
     </div>
 </div>
@@ -19,24 +69,29 @@
         type: 'line',
         data: {
             labels: {{ chart_data.labels | tojson }},
-            datasets: [
-                {
-                    label: 'История подключений',
-                    data: {{ chart_data.history | tojson }},
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    fill: true
+        datasets: [
+        {
+            label: 'Реальные подключения',
+            data: {{ chart_data.history | tojson }},
+        borderColor: '#0d6efd',
+        backgroundColor: 'rgba(13, 110, 253, 0.05)',
+        fill: true,
+        tension: 0.4
                 },
-                {
-                    label: 'Прогноз нейросети (7 дней)',
-                    data: {{ chart_data.forecast | tojson }},
-                    borderColor: '#dc3545',
-                    borderDash: [5, 5],
-                    fill: false
+        {
+            label: 'AI Прогноз (7 дней)',
+            data: {{ chart_data.forecast | tojson }},
+        borderColor: '#dc3545',
+        borderDash: [5, 5],
+        pointRadius: 0,
+        tension: 0.4
                 }
-            ]
+    ]
         },
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        options: {
+        plugins: { legend: { display: true, position: 'bottom' } },
+        scales: { y: { grid: { display: false } } }
+    }
     });
 </script>
 {% endblock %}

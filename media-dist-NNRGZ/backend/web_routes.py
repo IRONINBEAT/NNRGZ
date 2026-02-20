@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Device, File, User
-from analytics_engine import predict_growth
+from analytics_engine import get_enhanced_analytics
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -395,11 +395,18 @@ def get_analytics(
     user: User = Depends(get_current_web_user),
     db: Session = Depends(get_db)
 ):
-    if not user:
-        return RedirectResponse("/web/login")
+    if not user: return RedirectResponse("/web/login")
 
     devices = db.query(Device).filter(Device.user_id == user.id).all()
-    data = predict_growth(devices)
+    # Получаем расширенную аналитику
+    data = get_enhanced_analytics(devices)
+
+    if not data:
+        # Если устройств мало, выводим заглушку или пустые данные
+        return templates.TemplateResponse("analytics.html", {
+            "request": request, "user": user, "total_devices": len(devices), 
+            "chart_data": {"metrics": {"avg_growth": 0, "server_load": 0, "days_monitored": 0}}
+        })
 
     return templates.TemplateResponse("analytics.html", {
         "request": request,
